@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mali JR. — Display</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{
+    --bg:#0c0f14;--sur:#141820;--s2:#1c2230;--bor:#252d3d;
+    --acc:#ff5c00;--tx:#e8eaf0;--mu:#6b7a99;
+    --ok:#10b981;--wa:#f59e0b;--da:#ef4444;--bl:#3b82f6;
+    --r:14px;--rs:10px;
+  }
+  html,body{height:100%;background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;overflow:hidden;}
+
+  /* ── LAYOUT ── */
+  .app{height:100vh;display:grid;grid-template-rows:70px 1fr;overflow:hidden;}
+
+  /* ── HEADER ── */
+  .hdr{background:var(--sur);border-bottom:2px solid var(--acc);display:flex;align-items:center;justify-content:space-between;padding:0 28px;}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:3px;}
+  .logo span{color:var(--acc);}
+  .hdr-center{display:flex;gap:16px;align-items:center;}
+  .fecha-hoy{font-size:15px;color:var(--mu);}
+  .hora{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--acc);letter-spacing:2px;}
+  .hdr-right{display:flex;gap:12px;align-items:center;}
+  .sync-dot{width:10px;height:10px;border-radius:50%;background:var(--ok);}
+  .sync-dot.off{background:var(--mu);}
+  .sync-txt{font-size:12px;color:var(--mu);}
+
+  /* ── MAIN GRID ── */
+  .main{display:grid;grid-template-columns:1fr 360px;gap:0;overflow:hidden;}
+
+  /* ── CALENDARIO ── */
+  .cal-wrap{padding:24px;overflow:hidden;display:flex;flex-direction:column;}
+  .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+  .cal-titulo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;}
+  .nav-btn{background:var(--s2);border:1px solid var(--bor);color:var(--tx);width:38px;height:38px;border-radius:var(--rs);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+  .nav-btn:hover{border-color:var(--acc);color:var(--acc);}
+
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;flex:1;}
+  .cal-dayname{text-align:center;font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;padding:6px 0;font-weight:600;}
+  .cal-day{
+    background:var(--s2);border:1px solid var(--bor);border-radius:var(--rs);
+    padding:10px 8px;cursor:pointer;transition:all .2s;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    min-height:80px;position:relative;
+  }
+  .cal-day:hover{border-color:var(--acc);transform:scale(1.02);}
+  .cal-day.today{border-color:var(--acc);background:rgba(255,92,0,.08);}
+  .cal-day.has-orders{border-color:var(--ok);background:rgba(16,185,129,.06);}
+  .cal-day.has-urgent{border-color:var(--da);background:rgba(239,68,68,.08);animation:pulseRed 2s infinite;}
+  .cal-day.selected{border-color:var(--bl);background:rgba(59,130,246,.1);box-shadow:0 0 0 2px var(--bl);}
+  .cal-day.empty{background:transparent;border-color:transparent;cursor:default;}
+  .cal-day.empty:hover{transform:none;}
+  @keyframes pulseRed{0%,100%{box-shadow:none}50%{box-shadow:0 0 12px rgba(239,68,68,.4);}}
+  .day-num{font-family:'Bebas Neue',sans-serif;font-size:22px;line-height:1;}
+  .cal-day.today .day-num{color:var(--acc);}
+  .day-badges{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;}
+  .day-badge{
+    font-size:9px;padding:1px 6px;border-radius:10px;font-weight:600;white-space:nowrap;
+    max-width:100%;overflow:hidden;text-overflow:ellipsis;
+  }
+  .db-ok{background:rgba(16,185,129,.2);color:var(--ok);}
+  .db-ur{background:rgba(239,68,68,.2);color:#fca5a5;}
+  .db-wa{background:rgba(245,158,11,.2);color:var(--wa);}
+
+  /* ── SIDEBAR PEDIDOS DIA ── */
+  .sidebar{background:var(--sur);border-left:1px solid var(--bor);display:flex;flex-direction:column;overflow:hidden;}
+  .sidebar-hdr{padding:18px 20px 12px;border-bottom:1px solid var(--bor);}
+  .sidebar-titulo{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;}
+  .sidebar-sub{font-size:12px;color:var(--mu);margin-top:2px;}
+  .sidebar-list{flex:1;overflow-y:auto;padding:12px;}
+  .sidebar-list::-webkit-scrollbar{width:4px;}
+  .sidebar-list::-webkit-scrollbar-thumb{background:var(--bor);border-radius:2px;}
+  .pedido-item{
+    background:var(--s2);border:1px solid var(--bor);border-radius:var(--rs);
+    padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:all .2s;
+  }
+  .pedido-item:hover{border-color:var(--acc);}
+  .pedido-item.urgente{border-color:var(--da);}
+  .pi-nombre{font-weight:600;font-size:14px;}
+  .pi-sub{font-size:11px;color:var(--mu);margin-top:2px;}
+  .pi-meta{display:flex;gap:6px;margin-top:7px;align-items:center;}
+  .badge{padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;}
+  .sidebar-empty{text-align:center;color:var(--mu);padding:40px 20px;font-size:14px;}
+
+  /* ── ALERTAS DIA ── */
+  .alertas-hoy{margin:0 12px 10px;}
+  .alerta-item{
+    background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);
+    border-radius:var(--rs);padding:10px 14px;font-size:12px;color:#fca5a5;
+    margin-bottom:6px;display:flex;align-items:center;gap:8px;
+  }
+  .alerta-wa{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);color:#fcd34d;}
+
+  /* ── MODAL DETALLE ── */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .modal{
+    background:var(--sur);border:1px solid var(--bor);border-radius:20px;
+    width:100%;max-width:900px;max-height:90vh;overflow-y:auto;
+    padding:28px;animation:fadeIn .2s ease;
+  }
+  .modal::-webkit-scrollbar{width:6px;}
+  .modal::-webkit-scrollbar-thumb{background:var(--bor);border-radius:3px;}
+  @keyframes fadeIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+  .modal-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;}
+  .modal-titulo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px;}
+  .modal-sub{font-size:13px;color:var(--mu);margin-top:4px;display:flex;gap:12px;flex-wrap:wrap;}
+  .close-btn{background:var(--s2);border:1px solid var(--bor);color:var(--mu);width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;}
+  .close-btn:hover{border-color:var(--da);color:var(--da);}
+
+  /* TABS */
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--bor);margin-bottom:20px;padding-bottom:12px;}
+  .tab-btn{background:none;border:none;color:var(--mu);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:7px 14px;border-radius:var(--rs);cursor:pointer;transition:all .2s;}
+  .tab-btn.on{color:var(--acc);background:rgba(255,92,0,.1);}
+
+  /* TABLA */
+  .ptbl{width:100%;border-collapse:collapse;font-size:13px;}
+  .ptbl th{background:var(--acc);color:#fff;padding:9px 12px;text-align:left;font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;}
+  .ptbl td{padding:9px 12px;border-bottom:1px solid var(--bor);vertical-align:middle;}
+  .ptbl tr:nth-child(even) td{background:rgba(255,255,255,.02);}
+  .portero-tag{font-size:10px;padding:1px 6px;border-radius:10px;background:rgba(59,130,246,.15);color:var(--bl);border:1px solid rgba(59,130,246,.3);margin-left:4px;}
+  .num-cell{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--acc);}
+  .talla-cell{background:rgba(255,92,0,.12);color:var(--acc);padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;}
+
+  /* TALLAS GRID */
+  .talla-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;margin-top:10px;}
+  .talla-card{background:var(--s2);border:2px solid var(--acc);border-radius:var(--rs);padding:14px;text-align:center;}
+  .talla-num{font-family:'Bebas Neue',sans-serif;font-size:40px;color:var(--acc);line-height:1;}
+  .talla-lbl{font-size:12px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-top:4px;}
+
+  /* INFO CARDS */
+  .info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
+  .info-card{background:var(--s2);border-radius:var(--rs);padding:14px;}
+  .info-lbl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+  .info-val{font-weight:700;font-size:16px;}
+
+  /* NOTIFICACION TOAST */
+  .notif-toast{
+    position:fixed;top:80px;right:20px;z-index:999;
+    background:var(--acc);color:#fff;padding:14px 20px;
+    border-radius:var(--r);font-weight:600;font-size:14px;
+    box-shadow:0 4px 20px rgba(255,92,0,.4);
+    animation:slideIn .3s ease;max-width:340px;
+  }
+  @keyframes slideIn{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+  .notif-titulo{font-size:15px;font-weight:700;margin-bottom:4px;}
+  .notif-body{font-size:12px;opacity:.9;}
+
+  /* FOTO */
+  .modal-foto{width:100%;max-height:200px;object-fit:cover;border-radius:var(--rs);margin-bottom:16px;}
+
+  /* STATUS BAR */
+  .status-bar{background:rgba(16,185,129,.08);border-top:1px solid rgba(16,185,129,.2);padding:8px 20px;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--ok);}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- HEADER -->
+  <header class="hdr">
+    <div class="logo">MALI<span> JR.</span></div>
+    <div class="hdr-center">
+      <div class="fecha-hoy" id="fechaHoy"></div>
+      <div class="hora" id="reloj">00:00</div>
+    </div>
+    <div class="hdr-right">
+      <div class="sync-dot off" id="syncDot"></div>
+      <div class="sync-txt" id="syncTxt">Sin datos</div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- CALENDARIO -->
+    <div class="cal-wrap">
+      <div class="cal-nav">
+        <button class="nav-btn" onclick="cambiarMes(-1)">‹</button>
+        <div class="cal-titulo" id="calTitulo"></div>
+        <button class="nav-btn" onclick="cambiarMes(1)">›</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-hdr">
+        <div class="sidebar-titulo" id="sidebarTitulo">Selecciona un día</div>
+        <div class="sidebar-sub" id="sidebarSub">Toca cualquier día del calendario</div>
+      </div>
+      <div class="alertas-hoy" id="alertasHoy"></div>
+      <div class="sidebar-list" id="sidebarList">
+        <div class="sidebar-empty">📅<br>Toca un día para ver los pedidos</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE -->
+<div class="overlay" id="overlay" style="display:none" onclick="if(event.target===this)cerrarModal()">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<!-- NOTIF TOAST -->
+<div id="notifToast" style="display:none"></div>
+
+<script>
+// ══════════════════════════════════════════
+// ESTADO GLOBAL
+// ══════════════════════════════════════════
+let pedidos      = [];
+let mesActual    = new Date().getMonth();
+let anioActual   = new Date().getFullYear();
+let diaSeleccionado = null;
+let ultimoUpdate = null;
+let tabActual    = "lista";
+let notifsEnviadas = {}; // evitar duplicados
+
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const DIAS  = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+const EC    = {Pendiente:"#f59e0b","En proceso":"#3b82f6",Listo:"#10b981",Entregado:"#6b7280"};
+
+const hoy = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+const Q   = n => "Q"+Number(n||0).toLocaleString("es-GT",{minimumFractionDigits:2,maximumFractionDigits:2});
+const diasRestantes = f => {
+  if(!f) return null;
+  const [y,m,d]=f.split("-").map(Number);
+  const hoyD=new Date(); const hoyF=new Date(hoyD.getFullYear(),hoyD.getMonth(),hoyD.getDate());
+  return Math.round((new Date(y,m-1,d)-hoyF)/86400000);
+};
+
+// ══════════════════════════════════════════
+// RELOJ
+// ══════════════════════════════════════════
+function actualizarReloj() {
+  const now = new Date();
+  document.getElementById("reloj").textContent =
+    `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+  document.getElementById("fechaHoy").textContent =
+    now.toLocaleDateString("es-GT",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+}
+setInterval(actualizarReloj, 1000);
+actualizarReloj();
+
+// ══════════════════════════════════════════
+// FETCH DATOS DEL SERVIDOR
+// ══════════════════════════════════════════
+async function fetchData() {
+  try {
+    const res  = await fetch("/data");
+    const data = await res.json();
+    if(data.updatedAt !== ultimoUpdate) {
+      ultimoUpdate = data.updatedAt;
+      pedidos = data.pedidos || [];
+      renderCalendario();
+      if(diaSeleccionado) renderSidebar(diaSeleccionado);
+      document.getElementById("syncDot").className = "sync-dot";
+      document.getElementById("syncTxt").textContent =
+        `Sync ${new Date(data.updatedAt).toLocaleTimeString("es-GT")}`;
+    }
+    verificarNotificaciones();
+  } catch(e) {
+    document.getElementById("syncDot").className = "sync-dot off";
+    document.getElementById("syncTxt").textContent = "Sin conexión";
+  }
+}
+
+// Actualizar cada 15 segundos
+fetchData();
+setInterval(fetchData, 15000);
+// Verificar notificaciones cada minuto
+setInterval(verificarNotificaciones, 60000);
+
+// ══════════════════════════════════════════
+// NOTIFICACIONES DE ENTREGA
+// ══════════════════════════════════════════
+function verificarNotificaciones() {
+  const hoyStr = hoy();
+  pedidos.forEach(p => {
+    if(p.estado==="Entregado") return;
+    const d = diasRestantes(p.fechaEntrega);
+    if(d===null) return;
+    const nombre = p.equipo||p.cliente;
+    const checks = [
+      {key:`${p.id}-3d`, cond:d===3, titulo:"⏰ Entrega en 3 días",    body:`"${nombre}" · ${p.items.length} prendas`, color:"#ff5c00"},
+      {key:`${p.id}-1d`, cond:d===1, titulo:"🔥 ¡Mañana es la entrega!", body:`"${nombre}" debe estar listo HOY`,     color:"#f59e0b"},
+      {key:`${p.id}-0d`, cond:d===0, titulo:"🚨 ¡ENTREGA HOY!",          body:`"${nombre}" · Confirmar entrega`,      color:"#ef4444"},
+    ];
+    checks.forEach(({key,cond,titulo,body,color})=>{
+      if(cond && notifsEnviadas[key] !== hoyStr) {
+        notifsEnviadas[key] = hoyStr;
+        mostrarToast(titulo, body, color);
+      }
+    });
+  });
+}
+
+function mostrarToast(titulo, body, color="#ff5c00") {
+  const el = document.getElementById("notifToast");
+  el.style.background = color;
+  el.innerHTML = `<div class="notif-titulo">${titulo}</div><div class="notif-body">${body}</div>`;
+  el.style.display = "block";
+  // Sonido de alerta
+  try {
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    [440,550,660].forEach((freq,i)=>{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = "sine";
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + i*0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i*0.15 + 0.3);
+      osc.start(ctx.currentTime + i*0.15);
+      osc.stop(ctx.currentTime + i*0.15 + 0.3);
+    });
+  } catch(e){}
+  setTimeout(()=>{ el.style.display="none"; }, 6000);
+}
+
+// ══════════════════════════════════════════
+// CALENDARIO
+// ══════════════════════════════════════════
+function renderCalendario() {
+  const titulo = document.getElementById("calTitulo");
+  titulo.textContent = `${MESES[mesActual]} ${anioActual}`;
+
+  const grid = document.getElementById("calGrid");
+  grid.innerHTML = "";
+
+  // Nombres de días
+  DIAS.forEach(d => {
+    const el = document.createElement("div");
+    el.className = "cal-dayname";
+    el.textContent = d;
+    grid.appendChild(el);
+  });
+
+  const primerDia = new Date(anioActual, mesActual, 1).getDay();
+  const diasMes   = new Date(anioActual, mesActual+1, 0).getDate();
+  const hoyStr    = hoy();
+
+  // Agrupar pedidos por fecha de entrega (solo este mes)
+  const porDia = {};
+  pedidos.forEach(p => {
+    if(!p.fechaEntrega || p.estado==="Entregado") return;
+    const [y,m] = p.fechaEntrega.split("-").map(Number);
+    if(y===anioActual && m-1===mesActual) {
+      const d = parseInt(p.fechaEntrega.split("-")[2]);
+      if(!porDia[d]) porDia[d]=[];
+      porDia[d].push(p);
+    }
+  });
+
+  // Celdas vacías al inicio
+  for(let i=0;i<primerDia;i++){
+    const el = document.createElement("div");
+    el.className = "cal-day empty";
+    grid.appendChild(el);
+  }
+
+  for(let d=1;d<=diasMes;d++){
+    const fechaStr = `${anioActual}-${String(mesActual+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const ps = porDia[d]||[];
+    const dr = diasRestantes(fechaStr);
+    const esHoy = fechaStr===hoyStr;
+    const esUrgente = ps.length>0 && (dr<=0);
+    const tieneP = ps.length>0;
+
+    const el = document.createElement("div");
+    el.className = "cal-day" + (esHoy?" today":"") + (esUrgente?" has-urgent":tieneP?" has-orders":"") + (diaSeleccionado===fechaStr?" selected":"");
+    el.onclick = ()=>seleccionarDia(fechaStr);
+
+    const numEl = document.createElement("div");
+    numEl.className = "day-num";
+    numEl.textContent = d;
+    el.appendChild(numEl);
+
+    if(ps.length>0){
+      const badges = document.createElement("div");
+      badges.className = "day-badges";
+      ps.slice(0,3).forEach(p=>{
+        const b = document.createElement("div");
+        const dr2 = diasRestantes(p.fechaEntrega);
+        b.className = "day-badge " + (dr2<=0?"db-ur":dr2<=1?"db-wa":"db-ok");
+        b.textContent = (p.equipo||p.cliente).slice(0,10);
+        badges.appendChild(b);
+      });
+      if(ps.length>3){
+        const more = document.createElement("div");
+        more.className = "day-badge db-ok";
+        more.textContent = `+${ps.length-3}`;
+        badges.appendChild(more);
+      }
+      el.appendChild(badges);
+    }
+
+    grid.appendChild(el);
+  }
+}
+
+function cambiarMes(dir) {
+  mesActual += dir;
+  if(mesActual>11){mesActual=0;anioActual++;}
+  if(mesActual<0){mesActual=11;anioActual--;}
+  renderCalendario();
+}
+
+// ══════════════════════════════════════════
+// SIDEBAR
+// ══════════════════════════════════════════
+function seleccionarDia(fechaStr) {
+  diaSeleccionado = fechaStr;
+  renderCalendario(); // re-render para marcar selected
+  renderSidebar(fechaStr);
+}
+
+function renderSidebar(fechaStr) {
+  const [y,m,d] = fechaStr.split("-").map(Number);
+  const fecha = new Date(y,m-1,d);
+  const nombre = fecha.toLocaleDateString("es-GT",{weekday:"long",day:"numeric",month:"long"});
+
+  document.getElementById("sidebarTitulo").textContent = nombre;
+
+  const ps = pedidos.filter(p=>p.fechaEntrega===fechaStr && p.estado!=="Entregado");
+  document.getElementById("sidebarSub").textContent = ps.length===0?"Sin entregas":""+ps.length+" entrega"+(ps.length!==1?"s":"");
+
+  // Alertas
+  const alertasEl = document.getElementById("alertasHoy");
+  alertasEl.innerHTML="";
+  const dr = diasRestantes(fechaStr);
+  if(ps.length>0){
+    const al = document.createElement("div");
+    al.className = "alerta-item " + (dr<=0?"":dr===1?"alerta-wa":"");
+    al.innerHTML = dr<0?`⚠️ Esta entrega ya venció hace ${Math.abs(dr)} día(s)`:
+                   dr===0?`🚨 ¡Es HOY! ${ps.length} pedido(s) para entregar`:
+                   dr===1?`🔥 ¡Mañana! Verificar que todo esté listo`:
+                   `📅 Faltan ${dr} día(s)`;
+    alertasEl.appendChild(al);
+  }
+
+  const list = document.getElementById("sidebarList");
+  if(ps.length===0){
+    list.innerHTML='<div class="sidebar-empty">✅<br>Sin entregas este día</div>';
+    return;
+  }
+  list.innerHTML="";
+  ps.forEach(p=>{
+    const dr2 = diasRestantes(p.fechaEntrega);
+    const el = document.createElement("div");
+    el.className = "pedido-item" + (dr2<=0?" urgente":"");
+    el.innerHTML = `
+      <div class="pi-nombre">${p.equipo||p.cliente}</div>
+      <div class="pi-sub">👤 ${p.cliente}${p.deporte?" · "+p.deporte:""}</div>
+      <div class="pi-meta">
+        <span class="badge" style="background:${EC[p.estado]}22;color:${EC[p.estado]};border:1px solid ${EC[p.estado]}44">${p.estado}</span>
+        <span style="font-size:11px;color:var(--mu)">👕 ${p.items.length} prenda${p.items.length!==1?"s":""}</span>
+        ${p.costos&&p.costos.length>0?`<span style="font-size:11px;color:var(--ok)">💰 Con costos</span>`:""}
+      </div>`;
+    el.onclick = ()=>abrirModal(p);
+    list.appendChild(el);
+  });
+}
+
+// ══════════════════════════════════════════
+// MODAL DETALLE (solo lectura)
+// ══════════════════════════════════════════
+function abrirModal(pedido) {
+  tabActual = "lista";
+  renderModal(pedido);
+  document.getElementById("overlay").style.display="flex";
+}
+function cerrarModal() {
+  document.getElementById("overlay").style.display="none";
+}
+
+function renderModal(pedido) {
+  const tc = pedido.items.reduce((a,it)=>{ a[it.talla]=(a[it.talla]||0)+1; return a; },{});
+  const porteros = pedido.items.filter(i=>i.portero);
+  const pagos = pedido.pagos||[];
+  const totalPagado = pagos.reduce((a,p)=>a+Number(p.monto||0),0);
+  const pendiente = Number(pedido.total||0)-totalPagado;
+  const dr = diasRestantes(pedido.fechaEntrega);
+
+  const tabs = ["lista","tallas","info"];
+  const tabLabels = {lista:"📋 Lista completa", tallas:"📊 Tallas", info:"ℹ️ Info"};
+
+  document.getElementById("modalContent").innerHTML = `
+    ${pedido.foto?`<img src="${pedido.foto}" class="modal-foto" alt="diseño">`:""}
+    <div class="modal-hdr">
+      <div>
+        <div class="modal-titulo">${pedido.equipo||pedido.cliente}</div>
+        <div class="modal-sub">
+          ${pedido.deporte?`<span>🏆 ${pedido.deporte}</span>`:""}
+          <span>👤 ${pedido.cliente}</span>
+          ${pedido.telefono?`<span>📱 ${pedido.telefono}</span>`:""}
+          <span class="badge" style="background:${EC[pedido.estado]}22;color:${EC[pedido.estado]};border:1px solid ${EC[pedido.estado]}44">${pedido.estado}</span>
+          ${dr!==null?`<span style="color:${dr<0?"#ef4444":dr===0?"#ef4444":dr<=3?"#f59e0b":"#10b981"};font-weight:600">${dr<0?"⚠️ Venció "+Math.abs(dr)+"d":dr===0?"🚨 ¡HOY!":"📅 "+dr+"d restantes"}</span>`:""}
+        </div>
+      </div>
+      <button class="close-btn" onclick="cerrarModal()">✕</button>
+    </div>
+
+    <div class="tabs">
+      ${tabs.map(t=>`<button class="tab-btn ${tabActual===t?"on":""}" onclick="cambiarTab('${JSON.stringify(pedido).replace(/'/g,"\\'")}','${t}')">${tabLabels[t]}</button>`).join("")}
+    </div>
+
+    ${tabActual==="lista"?`
+      <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--bor)">
+        <table class="ptbl">
+          <thead><tr><th>#</th><th>Nombre camisola</th><th>Núm.</th><th>Talla</th><th>Género</th><th>Notas</th></tr></thead>
+          <tbody>
+            ${pedido.items.map((it,i)=>`<tr>
+              <td style="color:var(--mu);font-size:11px">${i+1}</td>
+              <td><b>${it.nombreCamisola||it.nombreJugador||"—"}</b> <span style="color:var(--mu);font-size:11px">${it.nombreJugador&&it.nombreCamisola&&it.nombreCamisola!==it.nombreJugador?"("+it.nombreJugador+")":""}</span>${it.portero?`<span class="portero-tag">🧤</span>`:""}</td>
+              <td class="num-cell">${it.numero||"—"}</td>
+              <td><span class="talla-cell">${it.talla}</span></td>
+              <td style="color:var(--mu);font-size:12px">${it.genero}</td>
+              <td style="color:var(--mu);font-size:12px">${it.notas||"—"}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+      ${porteros.length>0?`<div style="margin-top:12px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:var(--rs);padding:10px 14px;font-size:13px;color:var(--bl)">🧤 <b>Portero(s):</b> ${porteros.map(p=>p.nombreCamisola||p.nombreJugador||"—").join(", ")}</div>`:""}
+    `:tabActual==="tallas"?`
+      <div class="talla-grid">
+        ${Object.entries(tc).map(([k,v])=>`<div class="talla-card"><div class="talla-num">${v}</div><div class="talla-lbl">${k}</div></div>`).join("")}
+      </div>
+      <div style="margin-top:14px;background:var(--s2);border-radius:var(--rs);padding:12px 16px;font-size:13px;color:var(--mu)">
+        Total: <b style="color:var(--tx)">${pedido.items.length} prendas</b>${porteros.length>0?` · 🧤 ${porteros.length} portero(s)`:""}
+      </div>
+    `:`
+      <div class="info-grid">
+        <div class="info-card"><div class="info-lbl">Entrega</div><div class="info-val">${pedido.fechaEntrega||"—"}</div></div>
+        <div class="info-card"><div class="info-lbl">Prendas</div><div class="info-val" style="color:var(--acc)">${pedido.items.length}</div></div>
+        <div class="info-card"><div class="info-lbl">Estado</div><div class="info-val" style="color:${EC[pedido.estado]}">${pedido.estado}</div></div>
+        <div class="info-card"><div class="info-lbl">Total</div><div class="info-val">${Q(pedido.total)}</div></div>
+        <div class="info-card"><div class="info-lbl">Pagado</div><div class="info-val" style="color:var(--ok)">${Q(totalPagado)}</div></div>
+        <div class="info-card"><div class="info-lbl">Por cobrar</div><div class="info-val" style="color:${pendiente>0?"var(--wa)":"var(--ok)"}">${Q(pendiente)}</div></div>
+      </div>
+      ${pedido.notas?`<div style="background:var(--s2);border-radius:var(--rs);padding:12px 16px;font-size:13px;color:var(--mu)">📝 ${pedido.notas}</div>`:""}
+    `}
+  `;
+}
+
+// Tab change — guardar pedido en window temporalmente
+window._modalPedido = null;
+function cambiarTab(pedidoJSON, tab) {
+  tabActual = tab;
+  // Recuperar el pedido actual del DOM no es práctico, así que lo re-buscamos
+  // El JSON está en el onclick del botón — pero puede tener caracteres especiales
+  // En lugar de eso, guardemos el pedido en una variable global temporal
+  if(window._modalPedido) renderModal(window._modalPedido);
+}
+// Sobreescribir abrirModal para guardar referencia
+const _abrirModal = abrirModal;
+function abrirModal(p){ window._modalPedido=p; tabActual="lista"; renderModal(p); document.getElementById("overlay").style.display="flex"; }
+
+// Simplificar cambiarTab
+function cambiarTab(ped, tab) {
+  tabActual = tab;
+  renderModal(window._modalPedido);
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+renderCalendario();
+// Mostrar hoy por defecto en sidebar
+seleccionarDia(hoy());
+</script>
+</body>
+</html>
