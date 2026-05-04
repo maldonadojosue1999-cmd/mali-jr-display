@@ -505,7 +505,7 @@ function renderModal(pedido) {
     </div>
 
     <div class="tabs">
-      ${tabs.map(t=>`<button class="tab-btn ${tabActual===t?"on":""}" onclick="cambiarTab('${JSON.stringify(pedido).replace(/'/g,"\\'")}','${t}')">${tabLabels[t]}</button>`).join("")}
+      ${tabs.map(t=>`<button class="tab-btn ${tabActual===t?"on":""}" onclick="cambiarTab('${t}')">${tabLabels[t]}</button>`).join("")}
     </div>
 
     ${tabActual==="lista"?`
@@ -546,23 +546,17 @@ function renderModal(pedido) {
   `;
 }
 
-// Tab change — guardar pedido en window temporalmente
-window._modalPedido = null;
-function cambiarTab(pedidoJSON, tab) {
+// Tab change
+function cambiarTab(tab) {
   tabActual = tab;
-  // Recuperar el pedido actual del DOM no es práctico, así que lo re-buscamos
-  // El JSON está en el onclick del botón — pero puede tener caracteres especiales
-  // En lugar de eso, guardemos el pedido en una variable global temporal
   if(window._modalPedido) renderModal(window._modalPedido);
 }
-// Sobreescribir abrirModal para guardar referencia
-const _abrirModal = abrirModal;
-function abrirModal(p){ window._modalPedido=p; tabActual="lista"; renderModal(p); document.getElementById("overlay").style.display="flex"; }
 
-// Simplificar cambiarTab
-function cambiarTab(ped, tab) {
-  tabActual = tab;
-  renderModal(window._modalPedido);
+function abrirModal(p) {
+  window._modalPedido = p;
+  tabActual = "lista";
+  renderModal(p);
+  document.getElementById("overlay").style.display = "flex";
 }
 
 // ══════════════════════════════════════════
