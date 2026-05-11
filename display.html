@@ -182,7 +182,35 @@ html,body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;
 .info-val{font-weight:700;font-size:15px;}
 .modal-foto{width:100%;max-height:180px;object-fit:cover;border-radius:var(--rs);margin-bottom:14px;}
 
-/* ── TOAST ── */
+/* ── CHECKLIST ENTREGA ── */
+.check-item{
+  display:flex;align-items:center;gap:14px;
+  background:var(--s2);border:1px solid var(--bor);border-radius:var(--rs);
+  padding:14px 16px;cursor:pointer;transition:all .25s;user-select:none;
+}
+.check-item:hover{border-color:var(--ok);transform:translateX(3px);}
+.check-item.done{background:rgba(16,185,129,.07);border-color:rgba(16,185,129,.3);opacity:.75;}
+.check-box{
+  width:30px;height:30px;border-radius:9px;flex-shrink:0;
+  border:2.5px solid var(--bor);background:transparent;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;color:#fff;transition:all .25s;
+}
+.check-item.done .check-box{background:var(--ok);border-color:var(--ok);}
+.check-name{font-weight:700;font-size:15px;transition:all .25s;}
+.check-item.done .check-name{text-decoration:line-through;color:var(--mu);}
+.check-meta{font-size:12px;color:var(--mu);margin-top:3px;}
+.check-num{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--acc);flex-shrink:0;transition:color .25s;}
+.check-item.done .check-num{color:var(--mu);}
+.prog-bar-bg{height:10px;background:var(--s2);border-radius:5px;overflow:hidden;margin:10px 0 4px;}
+.prog-bar-fill{height:100%;border-radius:5px;transition:width .4s ease,background .4s;}
+@keyframes confetti{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(-80px) rotate(720deg);opacity:0}}
+.confetti-piece{position:absolute;width:8px;height:8px;border-radius:2px;animation:confetti .8s ease forwards;}
+.entrega-completa{
+  background:linear-gradient(135deg,rgba(16,185,129,.2),rgba(16,185,129,.05));
+  border:2px solid var(--ok);border-radius:var(--r);
+  padding:20px;text-align:center;position:relative;overflow:hidden;
+}
 .notif-toast{
   position:fixed;top:70px;right:16px;z-index:999;
   background:var(--acc);color:#fff;padding:14px 18px;
@@ -601,6 +629,104 @@ function renderSidebar(fechaStr) {
 }
 
 // ══════════════════════════════════════════
+// CHECKLIST ENTREGA (localStorage)
+// ══════════════════════════════════════════
+function clKey(pedidoId){ return `malijr_cl_${pedidoId}`; }
+function loadCL(pedidoId){ try{ return JSON.parse(localStorage.getItem(clKey(pedidoId))||"{}"); }catch{ return {}; } }
+function saveCL(pedidoId, data){ try{ localStorage.setItem(clKey(pedidoId), JSON.stringify(data)); }catch{} }
+function resetCL(pedidoId){ localStorage.removeItem(clKey(pedidoId)); }
+
+function toggleCheck(itemId){
+  const p = window._mp; if(!p) return;
+  const cl = loadCL(p.id);
+  cl[itemId] = !cl[itemId];
+  saveCL(p.id, cl);
+  // Re-render solo la tab entrega sin re-renderizar todo el modal
+  renderEntregaTab();
+}
+
+function marcarTodosCL(val){
+  const p = window._mp; if(!p) return;
+  const cl = {};
+  if(val) p.items.forEach(it=>{ cl[it.id]=true; });
+  saveCL(p.id, cl);
+  renderEntregaTab();
+}
+
+function renderEntregaTab(){
+  const p = window._mp; if(!p) return;
+  const cl = loadCL(p.id);
+  const total = p.items.length;
+  const done  = p.items.filter(it=>cl[it.id]).length;
+  const pct   = total>0 ? Math.round(done/total*100) : 0;
+  const completo = done===total;
+  const barColor = completo ? "var(--ok)" : done>0 ? "var(--acc)" : "var(--mu)";
+
+  const el = document.getElementById("entregaTabContent");
+  if(!el) return;
+
+  el.innerHTML = `
+    <!-- Progreso -->
+    <div style="background:var(--s2);border-radius:var(--rs);padding:14px 16px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;color:${completo?"var(--ok)":"var(--tx)"}">
+            ${completo?"✅ ¡Entrega completa!":""+done+" de "+total+" entregadas"}
+          </div>
+          <div style="font-size:11px;color:var(--mu);margin-top:2px;">${p.equipo||p.cliente} · ${p.items.length} prendas</div>
+        </div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:40px;color:${barColor};line-height:1;">${pct}%</div>
+      </div>
+      <div class="prog-bar-bg">
+        <div class="prog-bar-fill" style="width:${pct}%;background:${barColor};"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button onclick="marcarTodosCL(true)" style="flex:1;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);color:var(--ok);border-radius:8px;padding:8px;font-size:13px;cursor:pointer;font-weight:600;">
+          ✓ Todas
+        </button>
+        <button onclick="marcarTodosCL(false)" style="flex:1;background:var(--sur);border:1px solid var(--bor);color:var(--mu);border-radius:8px;padding:8px;font-size:13px;cursor:pointer;">
+          ↺ Reiniciar
+        </button>
+      </div>
+    </div>
+
+    <!-- Lista de items -->
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+      ${p.items.map((it,i)=>`
+        <div class="check-item${cl[it.id]?" done":""}" onclick="toggleCheck('${it.id}')">
+          <div class="check-box">${cl[it.id]?"✓":""}</div>
+          <div style="flex:1;min-width:0;">
+            <div class="check-name">
+              ${it.nombreCamisola||it.nombreJugador||"Sin nombre"}
+              ${it.portero?`<span style="font-size:11px;padding:1px 6px;border-radius:8px;background:rgba(59,130,246,.15);color:#93c5fd;margin-left:6px;">🧤</span>`:""}
+            </div>
+            <div class="check-meta">#${it.numero||"—"} · Talla ${it.talla} · ${it.genero}${it.notas?" · "+it.notas:""}</div>
+          </div>
+          <div class="check-num">#${i+1}</div>
+        </div>
+      `).join("")}
+    </div>
+
+    <!-- Banner completo -->
+    ${completo?`
+      <div class="entrega-completa">
+        <div style="font-size:40px;margin-bottom:8px;">🎉</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--ok);letter-spacing:1px;">¡Todas las prendas entregadas!</div>
+        <div style="font-size:13px;color:var(--mu);margin-top:6px;">${p.cliente} · ${p.equipo||""}</div>
+        <button onclick="marcarTodosCL(false)" style="margin-top:12px;background:transparent;border:1px solid var(--bor);color:var(--mu);border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;">
+          Nueva entrega
+        </button>
+      </div>
+    `:""}
+  `;
+
+  // Sonido al completar
+  if(completo && done===total && done>0){
+    sonarAlerta(false);
+  }
+}
+
+// ══════════════════════════════════════════
 // MODAL
 // ══════════════════════════════════════════
 function abrirModal(p){ window._mp=p; tabActual="lista"; renderModal(); document.getElementById("overlay").style.display="flex"; }
@@ -632,7 +758,9 @@ function renderModal() {
       <button class="close-btn" onclick="cerrarModal()">✕</button>
     </div>
     <div class="tabs">
-      ${["lista","tallas","info"].map(t=>`<button class="tab-btn ${tabActual===t?"on":""}" onclick="cambiarTab('${t}')">${t==="lista"?"📋 Lista completa":t==="tallas"?"📊 Tallas":"ℹ️ Info"}</button>`).join("")}
+      ${["lista","tallas","entrega","info"].map(t=>`<button class="tab-btn ${tabActual===t?"on":""}" onclick="cambiarTab('${t}')">${
+        t==="lista"?"📋 Lista":t==="tallas"?"📊 Tallas":t==="entrega"?"✅ Entrega":"ℹ️ Info"
+      }</button>`).join("")}
     </div>
     ${tabActual==="lista"?`
       <div style="overflow-x:auto;border-radius:8px;border:1px solid var(--bor)">
@@ -658,6 +786,8 @@ function renderModal() {
       <div style="margin-top:10px;background:var(--s2);border-radius:var(--rs);padding:10px 14px;font-size:12px;color:var(--mu)">
         Total: <b style="color:var(--tx)">${p.items.length} prendas</b>${porteros.length>0?` · 🧤 ${porteros.length} portero(s)`:""}
       </div>
+    `:tabActual==="entrega"?`
+      <div id="entregaTabContent">Cargando...</div>
     `:`
       <div class="info-grid">
         <div class="info-card"><div class="info-lbl">Entrega</div><div class="info-val">${p.fechaEntrega||"—"}</div></div>
@@ -670,6 +800,8 @@ function renderModal() {
       ${p.notas?`<div style="background:var(--s2);border-radius:var(--rs);padding:10px 14px;font-size:12px;color:var(--mu)">📝 ${p.notas}</div>`:""}
     `}
   `;
+  // Si es tab entrega, renderizar el contenido dinámico
+  if(tabActual==="entrega") setTimeout(()=>renderEntregaTab(), 0);
 }
 
 // ══════════════════════════════════════════
